@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -m 25 -w \"\\\\nHTTP=%{http_code}\\\\n\" -H \"User-Agent: Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\)\" -H \"Referer: http://www.encar.com/\" 'https://api.encar.com/search/car/list/general?count=true&q=\\(And.Hidden.N._.\\(C.CarType.N._.\\(C.Manufacturer.%EB%B2%A4%EC%B8%A0.\\)\\)\\)&sr=%7CMobileModifiedDate%7C0%7C20')",
+      "Bash(curl -s -m 25 -w \"\\\\nHTTP=%{http_code}\\\\n\" -H \"User-Agent: Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36\" -H \"Referer: http://www.encar.com/\" -H \"Origin: http://www.encar.com\" 'https://api.encar.com/search/car/list/premium?count=true&q=\\(And.Hidden.N._.\\(C.CarType.N._.\\(C.Manufacturer.%EB%B2%A4%EC%B8%A0.\\)\\)\\)&sr=%7CMobileModifiedDate%7C0%7C20')",
+      "Bash(curl -s -m 20 -w \"\\\\nHTTP=%{http_code}\\\\n\" -H \"User-Agent: Mozilla/5.0\" 'https://api.encar.com/search/car/list/general?count=true&sr=%7CModifiedDate%7C0%7C20')",
+      "Bash(curl -s -m 20 -w \"\\\\nHTTP=%{http_code}\\\\n\" -H \"User-Agent: Mozilla/5.0\" 'https://api.encar.com/search/car/list/general?count=true&q=\\(And.Hidden.N._.CarType.N.\\)&sr=%7CModifiedDate%7C0%7C20')",
+      "Bash(curl -s -m 20 -G --data-urlencode 'q=\\(And.Hidden.N._.CarType.N.\\)' --data-urlencode 'sr=|ModifiedDate|0|3' -H 'User-Agent: __TRACKED_VAR__' https://api.encar.com/search/car/list/general -w '\\\\nHTTP=%{http_code}\\\\n')",
+      "Bash(python3 -c \"import requests; print\\('requests', requests.__version__\\)\")",
+      "Bash(python3 test_collect.py)",
+      "Bash(timeout 120 python3 /tmp/claude-1000/-mnt-c-Users-ppcwh-Documents-carfinder/be682ae8-bae9-4041-bab8-7af549393acf/scratchpad/test_kcar.py)",
+      "Bash(curl -s -m 15 -w '\\\\nHTTP=%{http_code}\\\\n' -H 'User-Agent: Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36' -H 'Referer: https://www.kcar.com/' 'https://api.kcar.com/api/v2/vehicle/search?page=1&size=5&searchWord=벤츠%20CLS')",
+      "Bash(curl -s -m 20 -H 'User-Agent: Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36' https://www.kcar.com/bc/curation/searchList)",
+      "Bash(grep -oE 'setEncParam:function[^}]{0,400}' all.js)",
+      "Bash(grep -oE 'setEncDef:function[^;]{0,500}' all.js)",
+      "Bash(grep -oE 'setParam:function[^}]{0,400}' all.js)",
+      "Bash(python3 -)",
+      "Bash(python3 -c \"import Crypto; print\\('pycryptodome', Crypto.__version__\\)\")",
+      "Bash(python3 -c \"import cryptography; print\\('cryptography', cryptography.__version__\\)\")",
+      "Bash(grep -oE 'wr_[a-z]{2,3}_[a-z_]+' all.js)",
+      "Bash(python3 kc.py)",
+      "Bash(curl -s -m 12 -o /dev/null -w \"carInfoDtl HTTP=%{http_code}\\\\n\" -H \"User-Agent: Mozilla/5.0\" \"https://www.kcar.com/bc/detail/carInfoDtl?cno=EC61313471\")",
+      "Bash(python3 collectors/kcar.py)"
+    ]
+  }
+}
