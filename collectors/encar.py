@@ -385,15 +385,39 @@ def _sub_badge(model_group: str, sub_label: str) -> str:
     return sub_label
 
 
-def _resolve_model(maker: str, model: str):
+def _norm_badge(s: str) -> str:
+    """배지 비교용 정규화 — 공백·하이픈·점 제외 문자 차이 무시, 소문자.
+    엔카 표기 'S350 d 4MATIC', 'ES300h F SPORT' ↔ 카탈로그 'S350d', 'F-Sport' 매칭."""
+    return re.sub(r"[\s\-_/]+", "", (s or "")).lower()
+
+
+def badge_matches(item: dict, badge_kw: str) -> bool:
+    """매물(item)의 Badge/BadgeDetail이 배지 키워드를 포함하는지 (정규화 비교)"""
+    if not badge_kw:
+        return True
+    kw = _norm_badge(badge_kw)
+    hay = _norm_badge((item.get("Badge") or "") + " " + (item.get("BadgeDetail") or ""))
+    return kw in hay
+
+
+def _resolve_model(maker: str, model: str, model_group: Optional[str] = None):
     """모델명 → (ModelGroup, 배지 키워드) 매핑.
-    우선순위: 별칭 → 모델그룹명(전체) → 세부모델 → 일반 추론.
-    BRAND_MODELS는 {브랜드: {모델그룹: [세부모델...]}} 3단계 구조."""
+    우선순위: UI 지정 모델그룹 → 별칭 → 모델그룹명(전체) → 세부모델 → 일반 추론.
+    BRAND_MODELS는 {브랜드: {모델그룹: [세부모델...]}} 3단계 구조.
+
+    model_group: UI에서 고른 모델그룹. 세부모델 라벨('터보', 'F-Sport', '3.5' 등)은
+      여러 모델그룹에 중복되므로, 그룹을 알면 반드시 그것을 우선 사용한다.
+      (예전에는 라벨만으로 역추적해 '마칸 터보'가 911로, 'NX F-Sport'가 ES로 검색됐음)"""
+    catalog = BRAND_MODELS.get(maker, {})
+    if model_group and model_group in catalog:
+        if not model or model == model_group:
+            return model_group, ""
+        return model_group, _sub_badge(model_group, model)
+
     key = (maker, model)
     if key in ENCAR_MODEL_GROUPS:
         return ENCAR_MODEL_GROUPS[key]
 
-    catalog = BRAND_MODELS.get(maker, {})
     # 모델그룹명 자체 선택 → 그룹 전체 (배지 없음)
     if model in catalog:
         return model, ""
@@ -480,15 +504,21 @@ def collect_encar_sync(
     maker="벤츠", model="CLS",
     year_from=2020, year_to=2024,
     mileage_max=80000, price_max=9000,
-    max_pages=3, colors=None,
+    max_pages=3, colors=None, model_group=None,
 ) -> List[CarListing]:
     """엔카 매물 수집 (동기). 결과는 Id 기준 중복 제거.
-    colors: UI 색상 버킷 리스트(예: ['검정','회색']) — 엔카 서버측 필터로 전달."""
-    model_group, badge_kw = _resolve_model(maker, model)
+    colors: UI 색상 버킷 리스트(예: ['검정','회색']) — 엔카 서버측 필터로 전달.
+    model_group: UI에서 선택한 모델그룹(있으면 세부모델 라벨 역추적보다 우선)."""
+    model_group, badge_kw = _resolve_model(maker, model, model_group)
     query = _build_query(maker, model_group, year_from, year_to, mileage_max, price_max, colors)
     logger.info(f"엔카 검색 쿼리: {query}  (badge='{badge_kw}')")
 
-    limit = 100                      # 한 번에 최대 100건
+    # 배지(세부모델)는 클라이언트에서 거르므로, 배지 검색이면 페이지를 크게·깊게 훑는다.
+    #  (엔카 API 1회 최대 500건 — 1000 이상은 빈 응답)
+    if badge_kw:
+        limit, max_pages = 500, max(max_pages, 6)     # 최대 3,000건 스캔
+    else:
+        limit = 100
     results: List[CarListing] = []
     seen_ids = set()
 
@@ -498,6 +528,9 @@ def collect_encar_sync(
             data = _fetch_page(query, offset, limit)
         except Exception as e:
             logger.warning(f"page={pg+1} API 호출 실패: {e}")
+            if pg == 0:
+                # 첫 페이지부터 실패 → 0건으로 숨기지 말고 UI에 원인을 알린다
+                raise RuntimeError(f"엔카 API 호출 실패: {e}") from e
             break
 
         items = data.get("SearchResults", []) or []
@@ -510,14 +543,15 @@ def collect_encar_sync(
             cid = str(item.get("Id", ""))
             if not cid or cid in seen_ids:
                 continue
-            badge = item.get("Badge", "") or ""
-            if badge_kw and badge_kw not in badge:
+            if not badge_matches(item, badge_kw):
                 continue
             car = _parse_api_item(item)
             if not car:
                 continue
-            # 모델그룹 정확도 후처리 — 부분매칭 오염 제거 (S-클래스에 CLS 섞임 방지)
-            if not model_belongs_to_group(car.model, model_group):
+            # 서버 ModelGroup 필터는 정확(exact)하고 응답에 ModelGroup 필드가 없으므로,
+            #  Model 문자열로 그룹을 재검증하지 않는다. (예: 밴티지 그룹의 'V8 Vantage'가
+            #  탈락하던 문제) 대신 제조사만 안전망으로 확인.
+            if car.maker and car.maker != ENCAR_MAKER_ALIAS.get(maker, maker):
                 continue
             seen_ids.add(cid)
             results.append(car)
@@ -540,7 +574,7 @@ async def collect_encar(
     maker="벤츠", model="CLS",
     year_from=2020, year_to=2024,
     mileage_max=80000, price_max=9000,
-    max_pages=3, colors=None,
+    max_pages=3, colors=None, model_group=None,
 ) -> List[CarListing]:
     """비동기 래퍼 — 내부적으로 동기 수집을 스레드에서 실행"""
     return await asyncio.to_thread(
@@ -548,7 +582,7 @@ async def collect_encar(
         maker=maker, model=model,
         year_from=year_from, year_to=year_to,
         mileage_max=mileage_max, price_max=price_max,
-        max_pages=max_pages, colors=colors,
+        max_pages=max_pages, colors=colors, model_group=model_group,
     )
 
 

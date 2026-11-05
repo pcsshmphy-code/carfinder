@@ -249,6 +249,8 @@ def _run_search(**params):
     status = st.empty()
 
     all_listings = []
+    platform_counts = {}
+    platform_errors = []
 
     # ── 엔카 수집 ──────────────────────────────────────
     if ALLOW_LIVE_COLLECTION:
@@ -262,13 +264,15 @@ def _run_search(**params):
                 year_from=year_from, year_to=year_to,
                 mileage_max=mileage_max, price_max=price_max,
                 max_pages=3, colors=params.get("colors") or None,
+                model_group=params.get("model_group"),
             )
             all_listings.extend(encar_cars)
-            status.success(f"✅ 엔카: {len(encar_cars)}건 수집")
+            platform_counts["엔카"] = len(encar_cars)
             progress.progress(35)
 
         except Exception as e:
-            status.warning(f"⚠️ 엔카 수집 오류: {e}")
+            platform_counts["엔카"] = 0
+            platform_errors.append(f"⚠️ 엔카 수집 오류: {e}")
 
         # ── 케이카 수집 ────────────────────────────────
         try:
@@ -283,11 +287,17 @@ def _run_search(**params):
                 max_pages=2,
             )
             all_listings.extend(kcar_cars)
-            status.success(f"✅ 케이카: {len(kcar_cars)}건 수집")
+            platform_counts["케이카"] = len(kcar_cars)
             progress.progress(60)
 
         except Exception as e:
-            status.warning(f"⚠️ 케이카 수집 오류: {e}")
+            platform_counts["케이카"] = 0
+            platform_errors.append(f"⚠️ 케이카 수집 오류: {e}")
+
+        # 플랫폼별 결과는 덮어써지지 않는 별도 줄로 표시 (예전엔 엔카 오류가 즉시 가려졌음)
+        st.caption("📡 수집 결과 — " + " · ".join(f"{k} {v}건" for k, v in platform_counts.items()))
+        for msg in platform_errors:
+            st.warning(msg)
 
     else:
         status.warning("⚠️ ALLOW_LIVE_COLLECTION=False — 데모 데이터 사용")
