@@ -158,7 +158,9 @@ def ai_evaluate(
         if message.stop_reason == "max_tokens":
             logger.warning("AI 응답이 max_tokens로 잘렸습니다 — 일부 코멘트가 누락될 수 있습니다.")
 
-        raw = _extract_json(message.content[0].text)
+        # 텍스트 블록만 모아서 파싱 (첫 블록이 텍스트가 아닐 수도 있음)
+        text = "".join(getattr(b, "text", "") for b in message.content if getattr(b, "type", "") == "text")
+        raw = _extract_json(text)
         result = json.loads(raw) if raw else {}
 
         comments = result.get("comments", {})
@@ -184,6 +186,9 @@ def ai_evaluate(
     except anthropic.AuthenticationError:
         logger.warning("Anthropic 인증 실패 — AI 평가 건너뜀")
         return listings, "Anthropic API 키 인증에 실패했습니다 (키를 확인하세요)."
+    except anthropic.NotFoundError:
+        logger.warning(f"모델 없음: {ANTHROPIC_MODEL}")
+        return listings, f"AI 모델 '{ANTHROPIC_MODEL}'을 찾을 수 없습니다 (config.py의 ANTHROPIC_MODEL 확인)."
     except anthropic.RateLimitError:
         logger.warning("Anthropic Rate Limit — AI 평가 건너뜀")
         return listings, "Anthropic API 사용량 한도에 도달했습니다. 잠시 후 다시 시도하세요."

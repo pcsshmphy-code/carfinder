@@ -11,7 +11,7 @@ MAX_PAGES_PER_PLATFORM = 3     # 플랫폼당 최대 수집 페이지
 MAX_LISTINGS_PER_PLATFORM = 50 # 플랫폼당 최대 매물 수
 
 # ── Anthropic API ──────────────────────────────────────────
-ANTHROPIC_MODEL = "claude-sonnet-4-6"
+ANTHROPIC_MODEL = "claude-sonnet-5-5"   # 최신 Sonnet (구 claude-sonnet-4-6)
 AI_EVAL_ENABLED = True         # False → 알고리즘 점수만 사용
 
 # ── DB ────────────────────────────────────────────────────
